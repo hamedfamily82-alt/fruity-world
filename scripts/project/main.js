@@ -2,8 +2,15 @@
 runOnStartup(async runtime => runtime.addEventListener("beforeprojectstart", () => OnBeforeProjectStart(runtime)));
 
 async function OnBeforeProjectStart(runtime) {
+  runtime.addEventListener("pointerdown", () => OnPointerDown(runtime));
   InitGame(runtime);
   runtime.addEventListener("tick", () => Tick(runtime));
+}
+
+function OnPointerDown(runtime) {
+  if (runtime.layout.name === "home") {
+    runtime.goToLayout("select");
+  }
 }
 
 // ================== CONFIG & FRUIT MAP ==================
@@ -37,7 +44,7 @@ async function manageStars(runtime, save = false) {
 // ================== GAME SETUP ==================
 function InitGame(runtime) {
   // Start background music
-  //try { runtime.objects.Audio?.play("bgm.webm", { loop: true }); } catch {}
+  try { runtime.audio.play("bgm", { loop: true, tag: "bgm" }); } catch (e) { console.error("Error playing background music:", e); }
   
   manageStars(runtime); // Load stars
 
@@ -86,6 +93,26 @@ function InitGame(runtime) {
   // Hide Next button
   const nextBtn = runtime.objects.NextButton?.getFirstInstance();
   if (nextBtn) nextBtn.isVisible = false;
+
+  // Audio controls
+  const audioOn = runtime.objects.audioOn?.getFirstInstance();
+  const audioOff = runtime.objects.audioOff?.getFirstInstance();
+
+  if (audioOn && audioOff) {
+    audioOff.isVisible = false;
+
+    audioOn.addEventListener("click", () => {
+      runtime.audio.setSilent(true);
+      audioOn.isVisible = false;
+      audioOff.isVisible = true;
+    });
+
+    audioOff.addEventListener("click", () => {
+      runtime.audio.setSilent(false);
+      audioOff.isVisible = false;
+      audioOn.isVisible = true;
+    });
+  }
 }
 
 // ================== TICK - Check snap while dragging ==================
@@ -116,63 +143,13 @@ function snapFruit(runtime, fruit, shadow) {
   fruit._locked = true;
 
   // Play sound
-  const tag = fruit.instVars?.tag;
-  if (tag) {
-    try { console.log("Playing:", tag); } catch {}
+  const fruitName = fruit.objectType.name;
+  const soundName = fruitSoundMap[fruitName];
+  if (soundName) {
+    runtime.audio.play(soundName, { once: true });
+  } else {
+    console.warn(`No sound mapping found for fruit: ${fruitName}`);
   }
-
-  document.addEventListener("DOMContentLoaded", () => {
-  console.log("DOM ready");
-
-  const draggables = document.querySelectorAll('.draggable');
-  const dropzones = document.querySelectorAll('.dropzone');
-
-  draggables.forEach(drag => {
-    drag.addEventListener('dragstart', (e) => {
-      e.dataTransfer.setData('text/plain', drag.id);
-    });
-  });
-
-  dropzones.forEach(zone => {
-    zone.addEventListener('dragover', (e) => {
-      e.preventDefault(); // Needed to allow dropping
-    });
-
-    zone.addEventListener('drop', (e) => {
-      e.preventDefault();
-
-      const draggedId = e.dataTransfer.getData('text/plain');
-      const expectedFruit = zone.getAttribute('data-fruit');
-
-      if (draggedId === expectedFruit) {
-        zone.innerHTML = ''; // Clear shadow
-        const fruitImg = document.getElementById(draggedId);
-        fruitImg.style.pointerEvents = 'none'; // Prevent re-dragging
-        zone.appendChild(fruitImg); // Move fruit into drop zone
-
-        // Play corresponding audio
-        const audio = document.getElementById(`${draggedId}-audio`);
-        if (audio) {
-          audio.play(orange.webm);
-          audio.play(grapes.webm)
-          audio.play(banana.webm)
-          audio.play(apple.webm)
-          audio.play(cherry.webm)
-          audio.play(mango.webm)
-          audio.play(peach.webm)
-          audio.play(pomegranate.webm)
-          audio.play(straberry.webm)
-
-        } else {
-          console.warn("Audio not found for:", draggedId);
-        }
-      } else {
-        alert("Try again! That's not the right shadow.");
-      }
-    });
-  });
-});
-
 
   // Add star and save
   stars++;
@@ -211,7 +188,7 @@ function StageCompleted(runtime) {
   console.log("Stage Completed!");
   
   // Play celebration & show fireworks
-  // try { runtime.objects.Audio?.play("celebrate"); } catch {}
+  try { runtime.audio.play("celebrate", { tag: "celebrate" }); } catch (e) { console.error("Error playing celebration sound:", e); }
   
   const fireworks = runtime.objects.Fireworks?.getFirstInstance();
   if (fireworks?.behaviors?.Particles) {

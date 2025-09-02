@@ -9,6 +9,14 @@ async function OnBeforeProjectStart(runtime) {
 
 function OnPointerDown(runtime) {
   if (runtime.layout.name === "home") {
+    if (!isMusicStarted) {
+      try {
+        runtime.objects.Audio.play("bgm", { loop: true, tag: "bgm" });
+        isMusicStarted = true;
+      } catch (e) {
+        console.error("Error playing background music:", e);
+      }
+    }
     runtime.goToLayout("select");
   }
 }
@@ -17,6 +25,7 @@ function OnPointerDown(runtime) {
 const SNAP_TOLERANCE = 50;
 const STORAGE_KEY = "toddlersworld_stars";
 let stars = 0, activeDraggedFruit = null;
+let isMusicStarted = false;
 
 const fruitMap = {};
 for (let stage = 1; stage <= 18; stage++) {
@@ -29,6 +38,15 @@ for (let stage = 1; stage <= 18; stage++) {
 
 // ================== HELPERS ==================
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+function addHandCursor(runtime, inst) {
+  inst.addEventListener("pointerover", () => {
+    runtime.canvas.style.cursor = "pointer";
+  });
+  inst.addEventListener("pointerout", () => {
+    runtime.canvas.style.cursor = "default";
+  });
+}
 
 async function manageStars(runtime, save = false) {
   if (save) {
@@ -44,7 +62,6 @@ async function manageStars(runtime, save = false) {
 // ================== GAME SETUP ==================
 function InitGame(runtime) {
   // Start background music
-  try { runtime.audio.play("bgm", { loop: true, tag: "bgm" }); } catch (e) { console.error("Error playing background music:", e); }
   
   manageStars(runtime); // Load stars
 
@@ -84,6 +101,7 @@ function InitGame(runtime) {
   for (let i = 1; i <= 20; i++) {
     const btns = runtime.objects[`stage${i}`]?.getAllInstances?.() || [];
     btns.forEach(btn => {
+      addHandCursor(runtime, btn);
       btn.addEventListener("click", () => {
         runtime.goToLayout(btn.instVars?.tag || `stage${i}`);
       });
@@ -99,6 +117,8 @@ function InitGame(runtime) {
   const audioOff = runtime.objects.audioOff?.getFirstInstance();
 
   if (audioOn && audioOff) {
+    addHandCursor(runtime, audioOn);
+    addHandCursor(runtime, audioOff);
     audioOff.isVisible = false;
 
     audioOn.addEventListener("click", () => {
@@ -112,6 +132,29 @@ function InitGame(runtime) {
       audioOff.isVisible = false;
       audioOn.isVisible = true;
     });
+  }
+
+  if (runtime.layout.name === "home") {
+    runtime.canvas.style.cursor = "pointer";
+    const text = runtime.objects.Text.createInstance("Layer 0", 1024, 1200);
+    text.text = "Click anywhere to start play";
+    text.horizontalAlign = "center";
+    text.verticalAlign = "center";
+    text.font = "Arial";
+    text.ptSize = 60;
+    text.colorRgb = [0, 0, 0];
+  } else {
+    runtime.canvas.style.cursor = "default";
+  }
+
+  const moreGames = runtime.objects.moreGames?.getAllInstances();
+  if (moreGames) {
+    for (const inst of moreGames) {
+      addHandCursor(runtime, inst);
+      inst.addEventListener("click", () => {
+        runtime.goToLayout("more");
+      });
+    }
   }
 }
 
